@@ -1,0 +1,17 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.card-title {
+    font-weight: bold;
+    font-size: 1.25rem;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
+
+form button {
+    margin-right: 5px;
+}

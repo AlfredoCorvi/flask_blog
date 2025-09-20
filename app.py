@@ -30,6 +30,7 @@ def add():
         conn.execute('INSERT INTO posts (title, content) VALUES (?, ?)', (title, content))
         conn.commit()
         conn.close()
+        flash('Post added successfully!', 'success')
         return redirect(url_for('home'))
     return render_template('add.html')
 
@@ -78,11 +79,11 @@ def login():
 
         if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
-            flash('You are logged in', 'succes')
+            flash('You are logged in', 'success')
             return redirect(url_for('home'))
         else:
             flash('Invalid credentials', 'danger')
-    
+        
     return render_template('login.html')
 
 @app.route('/logout')

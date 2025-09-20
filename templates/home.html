@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+
+{% block title %}Home - My Blog{% endblock %}
+
+{% block content %}
+<h1>Welcome to My Blog!</h1>
+<a href="{{ url_for('add') }}" class="btn btn-success mb-3">Add New Post</a>
+
+{% for post in posts %}
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">{{ post.title }}</h5>
+        <p class="card-text">{{ post.content }}</p>
+    </div>
+</div>
+{% else %}
+<p>No posts yet!</p>
+{% endfor %}
+
+{% endblock %}

@@ -196,6 +196,47 @@ def view_post(id):
 
     return render_template('view_post.html', post=post, comments=comments)
 
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+
+        if not username or not password:
+            flash("Username and password are required!", "danger")
+            return redirect(url_for('register'))
+
+        conn = get_db_connection()
+        existing_user = conn.execute(
+            'SELECT * FROM users WHERE username = ?', (username,)
+        ).fetchone()
+
+        if existing_user:
+            conn.close()
+            flash("Username already taken, please choose another.", "warning")
+            return redirect(url_for('register'))
+
+        # Hash the password and insert new user
+        hashed_password = generate_password_hash(password)
+        conn.execute(
+            'INSERT INTO users (username, password) VALUES (?, ?)',
+            (username, hashed_password)
+        )
+        conn.commit()
+
+        # Get the user we just inserted
+        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        conn.close()
+
+        # Automatically log in
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+
+        flash("Registration successful! You are now logged in.", "success")
+        return redirect(url_for('home'))
+
+    return render_template('register.html')
+
 
 # ------------------ Run App ------------------
 

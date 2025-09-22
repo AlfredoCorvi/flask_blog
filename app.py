@@ -36,6 +36,17 @@ def init_db():
     )
     ''')
 
+    c.execute('''
+    CREATE TABLE IF NOT EXISTS comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    author TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES posts (id)
+    )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -122,7 +133,8 @@ def login():
 
         if user and check_password_hash(user['password'], password):
             session['user_id'] = user['id']
-            flash('You are logged in!', 'success')
+            session['username'] = user['username']
+            flash('You are logged in', 'success')
             return redirect(url_for('home'))
         else:
             flash('Invalid credentials', 'danger')
@@ -134,6 +146,56 @@ def logout():
     session.clear()
     flash('You were logged out!', 'info')
     return redirect(url_for('home'))
+
+app.route('/comment/<int:post_id>', methods = ['POST'])
+def comment(post_id):
+    if 'user_id' not in session:
+        flash('Please log in first', 'Warning')
+        return redirect(url_for('login'))
+    
+
+    content = request.form('content')
+    conn = get_db_connection()
+    conn.execute('INSERT INTO comments (post_id, content) VALUES (?,?)', (post_id, content))
+    conn.commit()
+    conn.close()
+    flash('Comment added!', 'Succes')
+    return redirect(url_for('view_post', id=post_id))
+
+@app.route('/post/<int:id>', methods=['GET', 'POST'])
+def view_post(id):
+    conn = get_db_connection()
+    post = conn.execute('SELECT * FROM posts WHERE id = ?', (id,)).fetchone()
+
+    if post is None:
+        conn.close()
+        flash("Post not found.", "danger")
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        if 'user_id' not in session:  # check login
+            flash("You must be logged in to comment.", "danger")
+            return redirect(url_for('login'))
+
+        content = request.form['content']
+        if not content:
+            flash("Comment cannot be empty!", "danger")
+        else:
+            conn.execute(
+                'INSERT INTO comments (post_id, author, content) VALUES (?, ?, ?)',
+                (id, session.get('username', 'Anonymous'), content)
+            )
+
+            conn.commit()
+            flash("Comment added successfully!", "success")
+
+    comments = conn.execute(
+        'SELECT * FROM comments WHERE post_id = ? ORDER BY created DESC', (id,)
+    ).fetchall()
+    conn.close()
+
+    return render_template('view_post.html', post=post, comments=comments)
+
 
 # ------------------ Run App ------------------
 

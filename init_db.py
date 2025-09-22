@@ -21,6 +21,17 @@ c.execute('''
 )
 ''')
 
+c.execute('''
+    CREATE TABLE comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    author TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (post_id) REFERENCES posts (id)
+)
+''')
+
 
 conn.commit()
 conn.close()

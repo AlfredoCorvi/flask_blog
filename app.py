@@ -195,6 +195,54 @@ def comment(post_id):
     flash('Comment added!', 'Succes')
     return redirect(url_for('view_post', id=post_id))
 
+@app.route('/comment/<int:id>/edit', methods=['GET', 'POST'])
+def edit_comment(id):
+    if 'user_id' not in session:
+        flash("Please log in to edit comments.", "danger")
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    comment = conn.execute('SELECT * FROM comments WHERE id = ?', (id,)).fetchone()
+
+    if not comment or comment['author'] != session['username']:
+        conn.close()
+        flash("You cannot edit this comment.", "danger")
+        return redirect(url_for('home'))
+
+    if request.method == 'POST':
+        content = request.form['content']
+        if content:
+            conn.execute('UPDATE comments SET content = ? WHERE id = ?', (content, id))
+            conn.commit()
+            flash("Comment updated!", "success")
+            conn.close()
+            return redirect(url_for('view_post', id=comment['post_id']))
+
+    conn.close()
+    return render_template('edit_comment.html', comment=comment)
+
+
+@app.route('/comment/<int:id>/delete', methods=['POST'])
+def delete_comment(id):
+    if 'user_id' not in session:
+        flash("Please log in to delete comments.", "danger")
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    comment = conn.execute('SELECT * FROM comments WHERE id = ?', (id,)).fetchone()
+
+    if not comment or comment['author'] != session['username']:
+        conn.close()
+        flash("You cannot delete this comment.", "danger")
+        return redirect(url_for('home'))
+
+    conn.execute('DELETE FROM comments WHERE id = ?', (id,))
+    conn.commit()
+    flash("Comment deleted.", "info")
+    conn.close()
+    return redirect(url_for('view_post', id=comment['post_id']))
+
+
 @app.route('/post/<int:id>', methods=['GET', 'POST'])
 def view_post(id):
     conn = get_db_connection()
@@ -269,6 +317,30 @@ def register():
         return redirect(url_for('home'))
 
     return render_template('register.html')
+
+app.route("/user/<username>")
+def user_profile(username):
+    conn = get_db_connection()
+    user = conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+    if not user:
+        conn.close()
+        flash("User not found", "Danger")
+        return redirect(url_for("home"))
+    
+    posts = conn.execute("SELECT * FROM posts WHERE author = ? ORDER BY created DESC", (username,)).fetchall()
+    conn.close()
+    return render_template('profile.html', user=user, posts=posts)
+
+@app.route('/search')
+def search():
+    query = request.args.get('q', '')
+    conn = get_db_connection()
+    posts = []
+    if query:
+        posts = conn.execute("SELECT * FROM posts WHERE title LIKE ? OR content LIKE ?", 
+                             (f'%{query}%', f'%{query}%')).fetchall()
+    conn.close()
+    return render_template('search.html', query=query, posts=posts)
 
 
 # ------------------ Run App ------------------

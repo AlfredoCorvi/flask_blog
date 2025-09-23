@@ -5,6 +5,7 @@ body {
 .card-title {
     font-weight: bold;
     font-size: 1.25rem;
+    margin-top: 8px;
 }
 
 .navbar-brand {

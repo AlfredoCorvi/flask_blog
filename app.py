@@ -24,7 +24,9 @@ def init_db():
     CREATE TABLE IF NOT EXISTS posts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
-        content TEXT NOT NULL
+        content TEXT NOT NULL,
+        author TEXT NOT NULL,
+        created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
     ''')
 
@@ -43,7 +45,7 @@ def init_db():
     author TEXT NOT NULL,
     content TEXT NOT NULL,
     created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (post_id) REFERENCES posts (id)
+    FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE
     )
     ''')
 
@@ -79,47 +81,78 @@ def add():
     if request.method == 'POST':
         title = request.form['title']
         content = request.form['content']
+        author = session['username']
         conn = get_db_connection()
-        conn.execute('INSERT INTO posts (title, content) VALUES (?, ?)', (title, content))
+        conn.execute('INSERT INTO posts (title, content, author) VALUES (?, ?, ?)', (title, content, author))
         conn.commit()
         conn.close()
         flash('Post added successfully!', 'success')
         return redirect(url_for('home'))
     return render_template('add.html')
 
-@app.route('/edit/<int:id>', methods=('GET', 'POST'))
+@app.route("/edit/<int:id>", methods=["GET", "POST"])
 def edit(id):
-    if 'user_id' not in session:
-        flash('Please log in first.', 'warning')
-        return redirect(url_for('login'))
+    if "user_id" not in session:
+        flash("You must be logged in to edit posts.", "warning")
+        return redirect(url_for("login"))
 
     conn = get_db_connection()
-    post = conn.execute('SELECT * FROM posts WHERE id = ?', (id,)).fetchone()
+    post = conn.execute("SELECT * FROM posts WHERE id = ?", (id,)).fetchone()
 
-    if request.method == 'POST':
-        title = request.form['title']
-        content = request.form['content']
-        conn.execute('UPDATE posts SET title = ?, content = ? WHERE id = ?', (title, content, id))
+    if post is None:
+        conn.close()
+        flash("Post not found.", "danger")
+        return redirect(url_for("index"))
+
+    # Check if logged-in user is the author
+    if post["author"] != session["username"]:
+        conn.close()
+        flash("You can only edit your own posts.", "danger")
+        return redirect(url_for("index"))
+
+    if request.method == "POST":
+        title = request.form["title"]
+        content = request.form["content"]
+
+        conn.execute(
+            "UPDATE posts SET title = ?, content = ? WHERE id = ?",
+            (title, content, id),
+        )
         conn.commit()
         conn.close()
-        flash('Post updated successfully!', 'success')
-        return redirect(url_for('home'))
+        flash("Post updated successfully!", "success")
+        return redirect(url_for("view_post", id=id))
 
     conn.close()
-    return render_template('edit.html', post=post)
+    return render_template("edit.html", post=post)
 
-@app.route('/delete/<int:id>', methods=('POST',))
+
+@app.route("/delete/<int:id>", methods=["POST"])
 def delete(id):
-    if 'user_id' not in session:
-        flash('Please log in first.', 'warning')
-        return redirect(url_for('login'))
+    if "user_id" not in session:
+        flash("You must be logged in to delete posts.", "warning")
+        return redirect(url_for("login"))
 
     conn = get_db_connection()
-    conn.execute('DELETE FROM posts WHERE id = ?', (id,))
+    post = conn.execute("SELECT * FROM posts WHERE id = ?", (id,)).fetchone()
+
+    if post is None:
+        conn.close()
+        flash("Post not found.", "danger")
+        return redirect(url_for("home"))
+
+    # Check if logged-in user is the author
+    if post["author"] != session["username"]:
+        conn.close()
+        flash("You can only delete your own posts.", "danger")
+        return redirect(url_for("home"))
+
+    conn.execute("DELETE FROM posts WHERE id = ?", (id,))
     conn.commit()
     conn.close()
-    flash('Post deleted successfully!', 'info')
-    return redirect(url_for('home'))
+    flash("Post deleted successfully!", "success")
+    return redirect(url_for("home"))
+
 
 @app.route('/login', methods=('GET', 'POST'))
 def login():
